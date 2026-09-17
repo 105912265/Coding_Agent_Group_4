@@ -1,31 +1,27 @@
-from .python_runner import run_python
+from pathlib import Path
+from uuid import uuid4
 
-
-RUNNERS = {
-    "python": run_python
-}
+from tools.code_executor import run_file
+from tools.file_manager import get_safe_path
 
 
 def execute_code(code: str, language: str) -> dict:
-    """
-    Execute code using the runner for the requested programming language.
-    Requested programming language currently is requested by the user. (Currently just python, other langauges will be implmented later)
-    Once LLM is connected, the parameter language would we inputed by LLM after detecting 
-    programming language accordingly.
-
-    paramters: code to be executed as string, programming language to be used
-    """
-
+    """Execute generated Python in the workspace using the Docker runner."""
     language = language.lower().strip()
-
-    runner = RUNNERS.get(language)
-
-    if runner is None:
+    if language != "python":
         return {
             "success": False,
             "stdout": "",
             "stderr": f"Unsupported programming language: {language}",
-            "exit_code": None
+            "exit_code": None,
         }
 
-    return runner(code)
+    relative_path = f"agent_run_{uuid4().hex}.py"
+    file_path = Path(get_safe_path(relative_path))
+    try:
+        file_path.write_text(code, encoding="utf-8")
+        return run_file(relative_path)
+    except OSError as error:
+        return {"success": False, "stdout": "", "stderr": str(error), "exit_code": None}
+    finally:
+        file_path.unlink(missing_ok=True)
