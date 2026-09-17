@@ -1,21 +1,25 @@
-from tools.execution.code_executor import execute_code
+"""
+starts the multi agent version
 
-
-code = """
-numbers = [3, 8, 2, 15, 6]
-
-print(max(numbers))
-
+this is the main.py for the multi agent system i just didnt want ot make it too confusing for now!!
 """
 
-
-result = execute_code(
-    code=code,
-    language="python"
-)
+from agents.agent_setup import build_multi_agent_system
 
 
-print("Success:", result["success"])
-print("Output:", result["stdout"])
-print("Error:", result["stderr"])
-print("Exit code:", result["exit_code"])
+def main():
+
+    # build everyone first
+    multi_agent_system = build_multi_agent_system()
+
+    # user can just type whatever small coding task they want
+    user_task = input("enter a coding task: ")
+
+    final_answer = multi_agent_system.run(user_task)
+
+    print("\nfinal result:")
+    print(final_answer)
+
+
+if __name__ == "__main__":
+    main()
