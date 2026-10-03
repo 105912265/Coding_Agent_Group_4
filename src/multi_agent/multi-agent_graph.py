@@ -4,7 +4,7 @@ from state.multi_agent_state import MultiAgentState
 
 from multi_agent.manager_node import manager_node
 from multi_agent.researcher_node import researcher_node
-from multi_agent.coder_node import coder_node
+from multi_agent.coder_node import create_coder_node
 from multi_agent.tester_node import tester_node
 
 
@@ -25,6 +25,11 @@ def route_after_testing(state: MultiAgentState):
 def build_multi_agent_graph():
 
     workflow = StateGraph(MultiAgentState)
+
+    #lmm_client is not defined yet
+    # Create the Coder node with access to the LLM
+    coder_node = create_coder_node(llm_client)
+
 
     # NODES
    
