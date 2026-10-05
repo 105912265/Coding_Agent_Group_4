@@ -1,27 +1,89 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Sandbox</title>
+    <title>Personal Portfolio Website</title>
 
     <style>
         body {
             font-family: Arial;
+            margin: 0;
+        }
+
+        nav {
+            background-color: #3f6fa3;
+            padding: 15px;
+        }
+
+        nav a {
+            color: white;
+            text-decoration: none;
+            margin-right: 25px;
+        }
+
+        nav a:hover {
+            text-decoration: underline;
+        }
+
+        .content {
             padding: 40px;
         }
 
         h1 {
             font-size: 40px;
         }
+
+        p {
+            font-size: 18px;
+        }
+
+        .about {
+            margin-top: 40px;
+        }
+
+        .contact {
+            margin-top: 40px;
+        }
     </style>
 </head>
 
 <body>
 
-    <h1>Hello World</h1>
+    <nav>
+        <a href="#">Home</a>
+        <a href="#">About</a>
+        <a href="#">Projects</a>
+        <a href="#">Contact</a>
+    </nav>
 
-    <p>Your generated website will appear here.</p>
+    <div class="content">
 
-    <button>Example Button</button>
+        <h1>Personal Portfolio</h1>
+
+        <p>
+            Welcome to my personal portfolio website.
+        </p>
+
+        <div class="about">
+
+            <h2>About Me</h2>
+
+            <p>
+                This section contains information about me and my work.
+            </p>
+
+        </div>
+
+        <div class="contact">
+
+            <h2>Contact</h2>
+
+            <p>
+                Get in touch with me through the contact section.
+            </p>
+
+        </div>
+
+    </div>
 
 </body>
 </html>
