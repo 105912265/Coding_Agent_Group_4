@@ -1,0 +1,5 @@
+AGENT|Hello! What would you like me to build?
+USER|Create a simple portfolio website.
+AGENT|I'll create a portfolio website with a home page and contact section.
+USER|Add a navigation bar at the top.
+AGENT|I've added a navigation bar.
