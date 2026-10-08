@@ -1,6 +1,7 @@
 from typing import TypedDict, Literal
 
 WorkflowStatus = Literal["starting","researching","coding","testing","success","failed"]
+Nodes = Literal["Manager", "Researcher", "Coder", "Tester", "End"]
 
 
 class MultiAgentState(TypedDict):
@@ -27,3 +28,5 @@ class MultiAgentState(TypedDict):
     iteration: int
     max_iterations: int
     status: WorkflowStatus
+    next_node: Nodes
+    #next_node for routing
