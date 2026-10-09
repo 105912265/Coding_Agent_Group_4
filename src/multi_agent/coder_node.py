@@ -7,6 +7,11 @@ def create_coder_node(llm_client):
 
     def coder_node(state: MultiAgentState):
 
+        """
+        internal loop with max iterations need to be defined with tandem with tester
+        agent.
+        """
+
         print("\n--- CODER AGENT ---")
 
         # gives the Coder only the shared-state information that is relevant to its role

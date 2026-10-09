@@ -6,6 +6,7 @@ from multi_agent.manager_node import manager_node
 from multi_agent.researcher_node import researcher_node
 from multi_agent.coder_node import create_coder_node
 from multi_agent.tester_node import tester_node
+from multi_agent.scope_guard_node import scope_guard_node
 
 
 def route_after_testing(state: MultiAgentState):
@@ -21,10 +22,17 @@ def route_after_testing(state: MultiAgentState):
     # Code failed, so send it back to the Coder
     return "retry"
 
+def route_after_scope_check(state: MultiAgentState):
+    if state["scope_status"] == "allowed":
+        return "continue"
+
+    return "reject"
+
 
 def build_multi_agent_graph():
 
     workflow = StateGraph(MultiAgentState)
+    workflow.add_node("scope_guard", scope_guard_node)
 
     #lmm_client is not defined yet
     # Create the Coder node with access to the LLM
@@ -43,7 +51,7 @@ def build_multi_agent_graph():
     
     # NORMAL EDGES
 
-    workflow.add_edge(START, "manager")
+    workflow.add_edge(START, "scope_guard")
 
     workflow.add_edge("manager", "researcher")
 
@@ -52,6 +60,15 @@ def build_multi_agent_graph():
     workflow.add_edge("coder", "tester")
 
     # CONDITIONAL EDGE
+
+    workflow.add_conditional_edges(
+        "scope_guard",
+        route_after_scope_check,
+        {
+            "continue": "manager",
+            "reject": END
+        }
+    )
 
     workflow.add_conditional_edges(
         "tester",
