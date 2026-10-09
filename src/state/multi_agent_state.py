@@ -27,6 +27,8 @@ class MultiAgentState(TypedDict):
     test_results: list[str]
     latest_feedback: str
 
+    test_status: str
+
     # Workflow information
     iteration: int
     max_iterations: int

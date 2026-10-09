@@ -6,7 +6,7 @@ from multi_agent.manager_node import manager_node
 from multi_agent.researcher_node import researcher_node
 from multi_agent.coder_node import create_coder_node
 from multi_agent.tester_node import tester_node
-from multi_agent.scope_guard_node import scope_guard_node
+from multi_agent.scope_guard_node import scope_guard_node, create_scope_guard_node
 
 
 def route_after_testing(state: MultiAgentState):
@@ -29,10 +29,12 @@ def route_after_scope_check(state: MultiAgentState):
     return "reject"
 
 
-def build_multi_agent_graph():
+def build_multi_agent_graph(llm_client):
 
     workflow = StateGraph(MultiAgentState)
-    workflow.add_node("scope_guard", scope_guard_node)
+    scope_guard = create_scope_guard_node(llm_client)
+
+    workflow.add_node("scope_guard", scope_guard)
 
     #lmm_client is not defined yet
     # Create the Coder node with access to the LLM
