@@ -32,7 +32,8 @@ TESTER_TOOLS = [
     execute_file,
 ]
 
-
+# allow planner to read individual files and view project structure
 PLANNER_TOOLS = [
-   read_file
+   read_file,
+   list_files,
 ]
