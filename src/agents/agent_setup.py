@@ -11,6 +11,7 @@ from smolagents import InferenceClientModel
 
 from tools.agent_toolsets import CODER_TOOLS
 from tools.agent_toolsets import TESTER_TOOLS
+from tools.agent_toolsets import PLANNER_TOOLS
 
 # def build_single_agent():
 
@@ -80,18 +81,34 @@ def build_multi_agent_system():
             "Do not edit the implementation files."
         )
     )
+        # tester mostly just checks whatever the coder made
+    planner = ToolCallingAgent(
+        tools=PLANNER_TOOLS,
+        model=llm,
+        name="planner",
+        description="breaks coding tasks into simple implementation steps",
+        instructions=(
+                    "Read the user's coding task and make a short implementation plan. "
+                   "Say what files should be created or changed, what each file should do, "
+                   "and what behaviour should be tested. "
+                   "Do not write or execute code."
+        )
+    )
+   
 
     # orchestrator just sends work between the other two
     orchestrator = ToolCallingAgent(
         tools=[],
         model=llm,
         managed_agents=[
+            planner,
             coder,
             tester
         ],
         instructions=(
-            "Give the original task to the coder. "
-            "Then give the original task and the coder's file paths to the tester. "
+            "First ask the planner to create a plan. "
+            "Then give the planner's plan to the coder. "
+            "After implementation, give the original task, the plan, and the coder's file paths to the tester."
             "If tests fail, send the specific failure back to the coder and request a repair. "
             "Repeat testing after a repair. "
             "Finish with the tested result or a clear explanation of why the task failed."

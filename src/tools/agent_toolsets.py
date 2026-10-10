@@ -31,3 +31,8 @@ TESTER_TOOLS = [
     write_test_file,
     execute_file,
 ]
+
+
+PLANNER_TOOLS = [
+   read_file
+]
