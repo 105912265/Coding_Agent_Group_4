@@ -41,7 +41,8 @@ def run_file(path: str) -> dict:
             "--read-only",
             "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m",
             "-e", "PYTHONDONTWRITEBYTECODE=1",
-            "-v", workspace_folder + ":/workspace:ro",
+            "-e", "PYTHONPATH=/workspace",
+            "-v", workspace_folder + ":/workspace:ro", #fixes bug causing workspace module not found error!!!! fuck!!
             "python:3.12-slim",
             "python",
             docker_file_path
