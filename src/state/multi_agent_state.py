@@ -1,6 +1,6 @@
 from typing import TypedDict, Literal
 
-WorkflowStatus = Literal["starting","researching","coding","testing","success","failed"]
+WorkflowStatus = Literal["starting","planning","coding","testing","success","failed"]
 
 
 class MultiAgentState(TypedDict):
@@ -12,8 +12,8 @@ class MultiAgentState(TypedDict):
     requirements: list[str]
     constraints: list[str]
 
-    # Researcher output
-    research_summary: str
+    # Planner output
+    planner_summary: str
     design_plan: str
 
     # Coder output

@@ -13,7 +13,7 @@ def get_manager_context(state: MultiAgentState) -> dict:
     }
 
 
-def get_researcher_context(state: MultiAgentState) -> dict:
+def get_planner_context(state: MultiAgentState) -> dict:
     return {
         "user_task": state["user_task"],
         "language": state["language"],

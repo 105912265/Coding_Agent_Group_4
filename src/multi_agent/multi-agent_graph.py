@@ -3,7 +3,7 @@ from langgraph.graph import StateGraph, START, END
 from state.multi_agent_state import MultiAgentState
 
 from multi_agent.manager_node import manager_node
-from multi_agent.researcher_node import researcher_node
+from multi_agent.planner_node import planner_node
 from multi_agent.coder_node import create_coder_node
 from multi_agent.tester_node import tester_node
 
@@ -35,7 +35,7 @@ def build_multi_agent_graph():
    
     workflow.add_node("manager", manager_node)
 
-    workflow.add_node("researcher", researcher_node)
+    workflow.add_node("planner", planner_node)
 
     workflow.add_node("coder", coder_node)
 
@@ -45,9 +45,9 @@ def build_multi_agent_graph():
 
     workflow.add_edge(START, "manager")
 
-    workflow.add_edge("manager", "researcher")
+    workflow.add_edge("manager", "planner")
 
-    workflow.add_edge("researcher", "coder")
+    workflow.add_edge("planner", "coder")
 
     workflow.add_edge("coder", "tester")
 
