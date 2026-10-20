@@ -8,6 +8,10 @@ class MultiAgentState(TypedDict):
     user_task: str
     language: str
 
+    #layer 1 scope filtering
+    scope_status: str
+    rejection_reason: str
+
     # Manager output
     requirements: list[str]
     constraints: list[str]
@@ -22,6 +26,8 @@ class MultiAgentState(TypedDict):
     # Tester output
     test_results: list[str]
     latest_feedback: str
+
+    test_status: str
 
     # Workflow information
     iteration: int
