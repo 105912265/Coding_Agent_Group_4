@@ -1,3 +1,2 @@
-
-def build_tester_prompt(context: dict) -> String:
-    
+def build_tester_prompt(context):
+    return str(context)

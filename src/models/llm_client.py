@@ -18,7 +18,7 @@ from smolagents import OpenAIServerModel
 
 
 def create_llm_client():
-    root = Path(__file__).resolve().parent[2] #Goes to Coding_Agent_Group_4/
+    root = Path(__file__).resolve().parents[2] #Goes to Coding_Agent_Group_4/
     load_dotenv(root / ".env")
     
     api_key = os.getenv("LLM_API_KEY")

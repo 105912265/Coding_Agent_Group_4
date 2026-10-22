@@ -28,6 +28,7 @@ CODER_TOOLS = [
 # tester only needs to look at stuff and run it for now??
 TESTER_TOOLS = [
     read_file,
+    list_files,
     write_test_file,
     execute_file,
 ]
