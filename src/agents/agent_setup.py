@@ -16,7 +16,8 @@ from tools.agent_toolsets import CODER_TOOLS
 from tools.agent_toolsets import TESTER_TOOLS
 from tools.agent_toolsets import PLANNER_TOOLS
 
-
+from models.llm_client import create_llm_client
+from agents.agent import Agent
 
 
 def build_multi_agent_system():
@@ -32,16 +33,18 @@ def build_multi_agent_system():
     #     num_ctx=8192,
     # )
 
-    llm = OpenAIModel(
-    model_id="openai/gpt-oss-120b",
-    api_base="https://api.groq.com/openai/v1",
-    api_key=os.environ["GROQ_API_KEY"],
-    )
-
-
+    #llm = OpenAIModel(
+    #model_id="openai/gpt-oss-120b",
+    #api_base="https://api.groq.com/openai/v1",
+    #api_key=os.environ["GROQ_API_KEY"],
+    #)
+    
+    llm = create_llm_client()
 
 
     # coder does the actual coding stuff
+    
+    coder = Agent()
     coder = ToolCallingAgent(
         tools=CODER_TOOLS,
         model=llm,
