@@ -9,3 +9,6 @@ LLM_MODEL=gemini-3.5-flash-lite
 
 you may change API base/model to something else (ensure that it is openai compatible)
 
+Also, ensure to install a .venv
+
+
