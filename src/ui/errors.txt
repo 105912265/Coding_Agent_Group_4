@@ -1,3 +1,0 @@
-Warning: Missing image file
-Error: Navigation link not found
-Warning: CSS property is not supported

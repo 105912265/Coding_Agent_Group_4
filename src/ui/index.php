@@ -8,16 +8,10 @@
 <body>
 
 <?php
-// create data directory
-umask(0007);
-$dir = "../../data/cos30018";
-if (!is_dir($dir)) {
-    mkdir($dir, 02770);
-}
 
-$filename = "../../data/cos30018/messages.txt";
-$statusfile = "../../data/cos30018/status.txt";
-$errorfile = "../../data/cos30018/errors.txt";
+$filename = "messages.txt";
+$statusfile = "status.txt";
+$errorfile = "errors.txt";
 // create messages.txt if not exists
 if (!file_exists($filename)) {
     $handle = fopen($filename, "w");
@@ -84,7 +78,7 @@ if (isset($_POST["prompt"])) {
         }
 
         // SEND PROMPT TO MANAGER AGENT
-        $command = "python3 managerAgent.py " . escapeshellarg($prompt);
+        $command = "python3 ../main.py " . escapeshellarg($prompt);
 
         passthru($command);
     }

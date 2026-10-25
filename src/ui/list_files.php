@@ -1,11 +1,10 @@
+
 <?php
 header("Content-Type: application/json; charset=UTF-8");
 
-$folder = __DIR__ . "/project1";
-$urlFolder = "project1";
+$folder = dirname(__DIR__, 2) . "/runtime/workspace";
 
 if (!is_dir($folder)) {
-    http_response_code(404);
     echo json_encode([]);
     exit;
 }
@@ -22,9 +21,10 @@ foreach (scandir($folder) as $name) {
     if (is_file($path) && !is_link($path)) {
         $files[] = [
             "name" => $name,
-            "url" => $urlFolder . "/" . rawurlencode($name)
+            "url" => "file.php?path=" . rawurlencode($name)
         ];
     }
 }
 
 echo json_encode($files);
+?>

@@ -1,3 +1,0 @@
-TITLE|Personal Portfolio Website
-STAGE|Building Navigation
-PROGRESS|60
