@@ -12,8 +12,8 @@ import traceback
 
 from agents.agent_setup import build_multi_agent_system
 
-project_folder = os.path.dirname(os.path.abspath(__file__))
-ui_folder = os.path.join(project_folder, "ui")
+src_folder = os.path.dirname(os.path.abspath(__file__))
+ui_folder = os.path.join(src_folder, "ui")
 
 messages_file = os.path.join(ui_folder, "messages.txt")
 status_file = os.path.join(ui_folder, "status.txt")

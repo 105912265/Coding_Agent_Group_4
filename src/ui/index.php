@@ -9,9 +9,9 @@
 
 <?php
 
-$filename = "messages.txt";
-$statusfile = "status.txt";
-$errorfile = "errors.txt";
+$filename = __DIR__ . "/messages.txt";
+$statusfile = __DIR__ . "/status.txt";
+$errorfile = __DIR__ . "/errors.txt";
 // create messages.txt if not exists
 if (!file_exists($filename)) {
     $handle = fopen($filename, "w");
@@ -78,9 +78,17 @@ if (isset($_POST["prompt"])) {
         }
 
         // SEND PROMPT TO MANAGER AGENT
-        $command = "python3 ../main.py " . escapeshellarg($prompt);
+        $srcFolder = dirname(__DIR__);
+        $mainFile = $srcFolder . "/main.py";
+        $logFile = __DIR__ . "/agent_output.log";
 
-        passthru($command);
+        $command = "cd " . escapeshellarg($srcFolder)
+                . " && nohup python3 " . escapeshellarg($mainFile)
+                . " " . escapeshellarg($prompt)
+                . " > " . escapeshellarg($logFile)
+                . " 2>&1 < /dev/null &";
+
+        exec($command);
     }
 }
 
@@ -94,7 +102,7 @@ if (isset($_POST["prompt"])) {
             Coding Agent
         </div>
 
-        <div class="messages">
+        <div class="messages" id="messages">
             <?php
             $handle = fopen($filename, "r");
             if ($handle) {
@@ -143,13 +151,13 @@ if (isset($_POST["prompt"])) {
         </div>
         <div class="project-status">
 
-            <div class="project-title">
+            <div class="project-title" id="projectTitle">
                 <?php echo htmlspecialchars($projectTitle, ENT_QUOTES, "UTF-8"); ?>
             </div>
 
-            <div class="project-stage">
+            <div class="project-stage" id="projectStage">
                 Stage:
-                <strong>
+                <strong id="stageText">
                     <?php echo htmlspecialchars($currentStage, ENT_QUOTES, "UTF-8"); ?>
                 </strong>
             </div>
@@ -157,14 +165,14 @@ if (isset($_POST["prompt"])) {
             <div class="progress-container">
 
                 <div
-                    class="progress-bar"
+                    class="progress-bar" id="progressBar" 
                     style="width: <?php echo $progress; ?>%;"
                 >
                 </div>
 
             </div>
 
-            <div class="progress-text">
+            <div class="progress-text" id="progressText">
                 <?php echo $progress; ?>%
             </div>
 
@@ -177,7 +185,7 @@ if (isset($_POST["prompt"])) {
             <div class="errors-title">
                 Errors
             </div>
-            <div class="error-list">
+            <div class="error-list" id="errorList">
                 <?php
                 $handle = fopen($errorfile, "r");
                 if ($handle) {
@@ -215,6 +223,102 @@ if (isset($_POST["prompt"])) {
     </div>
 
 </div>
+
+<script>
+async function refreshAgentUI() {
+    try {
+        const response = await fetch("get_status.php", {
+            cache: "no-store"
+        });
+
+        if (!response.ok) {
+            throw new Error("Could not load agent status");
+        }
+
+        const data = await response.json();
+
+        // Update project title
+        document.getElementById("projectTitle").textContent =
+            data.status.title;
+
+        // Update current stage
+        document.getElementById("stageText").textContent =
+            data.status.stage;
+
+        // Update progress bar
+        document.getElementById("progressBar").style.width =
+            data.status.progress + "%";
+
+        document.getElementById("progressText").textContent =
+            data.status.progress + "%";
+
+        // Update chat messages
+        const messages = document.getElementById("messages");
+        messages.replaceChildren();
+
+        data.messages.forEach(function(item) {
+            const messageDiv = document.createElement("div");
+
+            messageDiv.className = item.type === "USER"
+                ? "message user"
+                : "message";
+
+            const heading = document.createElement("strong");
+            heading.textContent = item.type === "USER"
+                ? "You:"
+                : "Agent:";
+
+            messageDiv.appendChild(heading);
+            messageDiv.appendChild(document.createElement("br"));
+
+            messageDiv.appendChild(
+                document.createTextNode(item.message)
+            );
+
+            messages.appendChild(messageDiv);
+        });
+
+        // Keep the latest chat message visible
+        messages.scrollTop = messages.scrollHeight;
+
+        // Update errors
+        const errorList = document.getElementById("errorList");
+        errorList.replaceChildren();
+
+        if (data.errors.length === 0 ||
+            data.errors.every(line => line.trim() === "")) {
+
+            const noErrors = document.createElement("div");
+            noErrors.className = "no-errors";
+            noErrors.textContent = "No errors reported.";
+
+            errorList.appendChild(noErrors);
+
+        } else {
+            data.errors.forEach(function(line) {
+                if (line.trim() === "") {
+                    return;
+                }
+
+                const errorDiv = document.createElement("div");
+                errorDiv.className = "error";
+                errorDiv.textContent = line;
+
+                errorList.appendChild(errorDiv);
+            });
+        }
+
+    } catch (error) {
+        console.error("UI refresh failed:", error);
+    }
+}
+
+// Load current data immediately
+refreshAgentUI();
+
+// Refresh every 1.5 seconds
+setInterval(refreshAgentUI, 1500);
+</script>
 
 </body>
 </html>
