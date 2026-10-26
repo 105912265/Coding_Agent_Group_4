@@ -110,7 +110,34 @@ if (isset($_POST["prompt"])) {
         <div class="header">
             Coding Agent
         </div>
+        <div class="project-status">
 
+            <div class="project-title" id="projectTitle">
+                <?php echo htmlspecialchars($projectTitle, ENT_QUOTES, "UTF-8"); ?>
+            </div>
+
+            <div class="project-stage" id="projectStage">
+                Stage:
+                <strong id="stageText">
+                    <?php echo htmlspecialchars($currentStage, ENT_QUOTES, "UTF-8"); ?>
+                </strong>
+            </div>
+
+            <div class="progress-container">
+
+                <div
+                    class="progress-bar" id="progressBar" 
+                    style="width: <?php echo $progress; ?>%;"
+                >
+                </div>
+
+            </div>
+
+            <div class="progress-text" id="progressText">
+                <?php echo $progress; ?>%
+            </div>
+
+        </div>
         <div class="messages" id="messages">
             <?php
             $handle = fopen($filename, "r");
@@ -169,34 +196,7 @@ if (isset($_POST["prompt"])) {
         <div class="header">
             Sandbox
         </div>
-        <div class="project-status">
 
-            <div class="project-title" id="projectTitle">
-                <?php echo htmlspecialchars($projectTitle, ENT_QUOTES, "UTF-8"); ?>
-            </div>
-
-            <div class="project-stage" id="projectStage">
-                Stage:
-                <strong id="stageText">
-                    <?php echo htmlspecialchars($currentStage, ENT_QUOTES, "UTF-8"); ?>
-                </strong>
-            </div>
-
-            <div class="progress-container">
-
-                <div
-                    class="progress-bar" id="progressBar" 
-                    style="width: <?php echo $progress; ?>%;"
-                >
-                </div>
-
-            </div>
-
-            <div class="progress-text" id="progressText">
-                <?php echo $progress; ?>%
-            </div>
-
-        </div>
         <div class="sandbox">
             <iframe src="sandbox.html" style="width: 100%; height: 650px;"></iframe>
         </div>
