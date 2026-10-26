@@ -57,26 +57,55 @@ def main():
         write_status(title, "Starting agent system", 5)
         log_message("AGENT", "Starting the multi-agent workflow.")
 
-        log_message("AGENT", "Creating LLM client...")
+        write_status(title, "Creating LLM client", 10)
         llm = create_llm_client()
 
-        log_message("AGENT", "Building multi-agent graph...")
+        write_status(title, "Building multi-agent graph", 15)
         graph = build_multi_agent_graph(llm)
 
-        log_message("AGENT", "Preparing initial task state...")
         state = initial_state(task, args.max_iterations)
 
         write_status(title, "Running multi-agent workflow", 20)
         log_message("AGENT", "Agents are now working on your task.")
 
-        result = graph.invoke(
+
+
+        config = {
+            "recursion_limit": max(
+                30, args.max_iterations * 12 + 20
+            )
+        }
+
+        result = None
+        update_count = 0
+        last_stage = ""
+
+        #graph.stream instead of graph.invoke for progress snapshots
+
+        for snapshot in graph.stream(
             state,
-            config={
-                "recursion_limit": max(
-                    30, args.max_iterations * 12 + 20
-                )
-            }
-        )
+            config=config,
+            stream_mode="values"
+        ):
+            result = snapshot
+            update_count += 1
+
+            history = snapshot.get("history", [])
+
+            if history:
+                stage = str(history[-1])
+            else:
+                stage = "Running multi-agent workflow"
+
+            if stage != last_stage:
+                progress = min(90, 20 + update_count * 5)
+                write_status(title, stage, progress)
+                print(f"Workflow stage: {stage}", flush=True)
+                last_stage = stage
+
+        if result is None:
+            raise RuntimeError("The graph did not return any state.")
+
 
         write_status(title, "Processing results", 90)
 
@@ -86,23 +115,33 @@ def main():
         test_report = result["test_report"]
         final_review = result["final_review"]
 
-        log_message("AGENT", f"Workflow status: {status}")
-        log_message("AGENT", "Workflow: " + " -> ".join(history))
-        log_message("AGENT", "Implementation: " + str(implementation))
-        log_message("AGENT", "Tests: " + str(test_report))
-        log_message("AGENT", "Supervisor: " + str(final_review))
+        print("\nSTATUS:", status, flush=True)
+        print("\nWORKFLOW:", " -> ".join(history), flush=True)
+        print("\nIMPLEMENTATION:", implementation, flush=True)
+        print("\nTESTS:", test_report, flush=True)
+        print("\nSUPERVISOR:", final_review, flush=True)
+
+        log_message("AGENT", f"Workflow finished with status: {status}")
 
         if status == "needs_clarification":
             log_message(
                 "AGENT",
-                "Please clarify: " + str(final_review)
+                "The agent needs more information: " + str(final_review)
             )
             write_status(title, "Needs clarification", 100)
 
         elif status in ("failed", "error"):
+            log_message(
+                "AGENT",
+                "The task could not be completed. Check the output or errors."
+            )
             write_status(title, "Task failed", 100)
 
         else:
+            log_message(
+                "AGENT",
+                "Task completed. Review the generated files and test results."
+            )
             write_status(title, "Completed", 100)
 
     except Exception:

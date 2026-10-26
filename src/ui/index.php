@@ -67,6 +67,12 @@ if ($handle) {
 
 // check if prompt submitted 
 if (isset($_POST["prompt"])) {
+    $maxIterations = isset($_POST["max_iterations"])
+        ? (int) $_POST["max_iterations"]
+        : 3;
+    if ($maxIterations < 1 || $maxIterations > 5) {
+        $maxIterations = 3;
+    }
     $prompt = trim($_POST["prompt"]);
     if ($prompt != "") {
         // append user prmppt
@@ -86,7 +92,7 @@ if (isset($_POST["prompt"])) {
         $command = "cd " . escapeshellarg($projectFolder)
                 . " && nohup python3 " . escapeshellarg($scriptFile)
                 . " " . escapeshellarg($prompt)
-                . " --max-iterations 3"
+                . " --max-iterations " . $maxIterations
                 . " > " . escapeshellarg($logFile)
                 . " 2>&1 < /dev/null &";
 
@@ -139,6 +145,17 @@ if (isset($_POST["prompt"])) {
 
             <textarea name="prompt"
                 placeholder="Tell the coding agent what to build..."></textarea>
+
+            <div class="iteration-setting">
+                <label for="max_iterations">Max <br> Iterations:</label>
+                <select name="max_iterations" id="max_iterations">
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3" selected>3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                </select>
+            </div>
 
             <button type="submit">Send</button>
 
