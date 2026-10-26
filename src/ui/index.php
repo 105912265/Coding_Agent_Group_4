@@ -78,17 +78,20 @@ if (isset($_POST["prompt"])) {
         }
 
         // SEND PROMPT TO MANAGER AGENT
-        $srcFolder = dirname(__DIR__);
-        $mainFile = $srcFolder . "/main.py";
+
+        $projectFolder = dirname(__DIR__, 2);
+        $scriptFile = $projectFolder . "/src/run_multi_agent.py";
         $logFile = __DIR__ . "/agent_output.log";
 
-        $command = "cd " . escapeshellarg($srcFolder)
-                . " && nohup python3 " . escapeshellarg($mainFile)
+        $command = "cd " . escapeshellarg($projectFolder)
+                . " && nohup python3 " . escapeshellarg($scriptFile)
                 . " " . escapeshellarg($prompt)
+                . " --max-iterations 3"
                 . " > " . escapeshellarg($logFile)
                 . " 2>&1 < /dev/null &";
 
         exec($command);
+
     }
 }
 
