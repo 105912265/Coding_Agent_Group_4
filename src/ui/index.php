@@ -297,7 +297,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["prompt"])) {
 
 <script>
 
-let previousMessageCount = 0;
+let previousMessages = [];
 let previousErrors = "";
 let previousStatus = "";
 
@@ -332,15 +332,21 @@ async function refreshAgentUI() {
             previousStatus = currentStatus;
         }
 
-        // Add only new chat messages
+
+        // Update chat messages only when they change
         const messages = document.getElementById("messages");
 
-        const wasAtBottom =
-            messages.scrollHeight - messages.scrollTop -
-            messages.clientHeight < 40;
+        const currentMessages = data.messages;
+        const currentMessagesJSON = JSON.stringify(currentMessages);
 
-        if (data.messages.length > previousMessageCount) {
-            data.messages.slice(previousMessageCount).forEach(function(item) {
+        if (currentMessagesJSON !== JSON.stringify(previousMessages)) {
+            const wasAtBottom =
+                messages.scrollHeight - messages.scrollTop -
+                messages.clientHeight < 40;
+
+            messages.replaceChildren();
+
+            currentMessages.forEach(function(item) {
                 const messageDiv = document.createElement("div");
 
                 messageDiv.className = item.type === "USER"
@@ -362,13 +368,16 @@ async function refreshAgentUI() {
                 messages.appendChild(messageDiv);
             });
 
-            previousMessageCount = data.messages.length;
+            previousMessages = currentMessages.map(item => ({
+                type: item.type,
+                message: item.message
+            }));
 
-            // Follow new messages only if the user was already at the bottom
             if (wasAtBottom) {
                 messages.scrollTop = messages.scrollHeight;
             }
         }
+
 
         // Update errors only when their contents change
         const currentErrors = JSON.stringify(data.errors);
