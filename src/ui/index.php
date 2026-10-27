@@ -332,34 +332,36 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["prompt"])) {
                 previousStatus = currentStatus;
             }
 
+
             // Update chat only when messages change
             const messages = document.getElementById("messages");
             const currentMessages = data.messages;
 
-            const newMessageArrived =
-                currentMessages.length > previousMessages.length;
+            const currentJSON = JSON.stringify(currentMessages);
+            const previousJSON = JSON.stringify(previousMessages);
 
-            const isReset =
-                currentMessages.length < previousMessages.length ||
-                currentMessages.some(function(item, index) {
-                    return previousMessages[index] &&
-                        (item.type !== previousMessages[index].type ||
-                         item.message !== previousMessages[index].message);
-                });
+            if (currentJSON !== previousJSON) {
+                const isReset =
+                    currentMessages.length < previousMessages.length ||
+                    currentMessages.some(function(item, index) {
+                        return previousMessages[index] &&
+                            (item.type !== previousMessages[index].type ||
+                             item.message !== previousMessages[index].message);
+                    });
 
-            if (JSON.stringify(currentMessages) !==
-                JSON.stringify(previousMessages)) {
+                const newMessageArrived =
+                    currentMessages.length > previousMessages.length &&
+                    !isReset;
 
-                if (isReset) {
-                    // Rebuild chat after a reset or changed conversation
+                if (isReset || previousMessages.length === 0) {
+                    // Rebuild the chat from the actual message list
                     messages.replaceChildren();
 
                     currentMessages.forEach(function(item) {
                         addChatMessage(messages, item);
                     });
-
                 } else {
-                    // Append only newly added messages
+                    // Append only messages that have not been displayed
                     currentMessages.slice(previousMessages.length).forEach(
                         function(item) {
                             addChatMessage(messages, item);
@@ -367,7 +369,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["prompt"])) {
                     );
                 }
 
-                // Save a copy of the current messages
                 previousMessages = currentMessages.map(function(item) {
                     return {
                         type: item.type,
@@ -375,11 +376,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["prompt"])) {
                     };
                 });
 
-                // Scroll only for new messages or a reset
+                // Scroll down only when a new message arrives or the chat resets
                 if (newMessageArrived || isReset) {
                     messages.scrollTop = messages.scrollHeight;
                 }
             }
+
 
             // Update errors only when their contents change
             const currentErrors = JSON.stringify(data.errors);
