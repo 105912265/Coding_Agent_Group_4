@@ -25,6 +25,11 @@ foreach ($files as $file) {
         file_put_contents($file, "");
     }
 }
+// add the initial agent greeting
+file_put_contents(
+    $uiFolder . "/messages.txt",
+    "AGENT|Hello! What would you like me to build today?\n"
+);
 
 // reset the project status
 file_put_contents(
