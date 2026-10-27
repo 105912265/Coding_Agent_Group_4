@@ -156,6 +156,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["prompt"])) {
         </div>
         <div class="project-status">
 
+            <div class="reset-button">
+                <form action="reset.php" method="POST"
+                    onsubmit="return confirm('Reset everything? This will delete all generated workspace files and clear the chat, logs and errors.');">
+                    <button type="submit">Reset</button>
+                </form>
+            </div>
+
             <div class="project-title" id="projectTitle">
                 <?php echo htmlspecialchars($projectTitle, ENT_QUOTES, "UTF-8"); ?>
             </div>
@@ -289,6 +296,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["prompt"])) {
 </div>
 
 <script>
+
+let previousMessageCount = 0;
+let previousErrors = "";
+let previousStatus = "";
+
 async function refreshAgentUI() {
     try {
         const response = await fetch("get_status.php", {
@@ -301,75 +313,94 @@ async function refreshAgentUI() {
 
         const data = await response.json();
 
-        // Update project title
-        document.getElementById("projectTitle").textContent =
-            data.status.title;
+        // Update project status only when it changes
+        const currentStatus = JSON.stringify(data.status);
 
-        // Update current stage
-        document.getElementById("stageText").textContent =
-            data.status.stage;
+        if (currentStatus !== previousStatus) {
+            document.getElementById("projectTitle").textContent =
+                data.status.title;
 
-        // Update progress bar
-        document.getElementById("progressBar").style.width =
-            data.status.progress + "%";
+            document.getElementById("stageText").textContent =
+                data.status.stage;
 
-        document.getElementById("progressText").textContent =
-            data.status.progress + "%";
+            document.getElementById("progressBar").style.width =
+                data.status.progress + "%";
 
-        // Update chat messages
+            document.getElementById("progressText").textContent =
+                data.status.progress + "%";
+
+            previousStatus = currentStatus;
+        }
+
+        // Add only new chat messages
         const messages = document.getElementById("messages");
-        messages.replaceChildren();
 
-        data.messages.forEach(function(item) {
-            const messageDiv = document.createElement("div");
+        const wasAtBottom =
+            messages.scrollHeight - messages.scrollTop -
+            messages.clientHeight < 40;
 
-            messageDiv.className = item.type === "USER"
-                ? "message user"
-                : "message";
+        if (data.messages.length > previousMessageCount) {
+            data.messages.slice(previousMessageCount).forEach(function(item) {
+                const messageDiv = document.createElement("div");
 
-            const heading = document.createElement("strong");
-            heading.textContent = item.type === "USER"
-                ? "You:"
-                : "Agent:";
+                messageDiv.className = item.type === "USER"
+                    ? "message user"
+                    : "message";
 
-            messageDiv.appendChild(heading);
-            messageDiv.appendChild(document.createElement("br"));
+                const heading = document.createElement("strong");
+                heading.textContent = item.type === "USER"
+                    ? "You:"
+                    : "Agent:";
 
-            messageDiv.appendChild(
-                document.createTextNode(item.message)
-            );
+                messageDiv.appendChild(heading);
+                messageDiv.appendChild(document.createElement("br"));
 
-            messages.appendChild(messageDiv);
-        });
+                messageDiv.appendChild(
+                    document.createTextNode(item.message)
+                );
 
-        // Keep the latest chat message visible
-        messages.scrollTop = messages.scrollHeight;
-
-        // Update errors
-        const errorList = document.getElementById("errorList");
-        errorList.replaceChildren();
-
-        if (data.errors.length === 0 ||
-            data.errors.every(line => line.trim() === "")) {
-
-            const noErrors = document.createElement("div");
-            noErrors.className = "no-errors";
-            noErrors.textContent = "No errors reported.";
-
-            errorList.appendChild(noErrors);
-
-        } else {
-            data.errors.forEach(function(line) {
-                if (line.trim() === "") {
-                    return;
-                }
-
-                const errorDiv = document.createElement("div");
-                errorDiv.className = "error";
-                errorDiv.textContent = line;
-
-                errorList.appendChild(errorDiv);
+                messages.appendChild(messageDiv);
             });
+
+            previousMessageCount = data.messages.length;
+
+            // Follow new messages only if the user was already at the bottom
+            if (wasAtBottom) {
+                messages.scrollTop = messages.scrollHeight;
+            }
+        }
+
+        // Update errors only when their contents change
+        const currentErrors = JSON.stringify(data.errors);
+
+        if (currentErrors !== previousErrors) {
+            const errorList = document.getElementById("errorList");
+            errorList.replaceChildren();
+
+            if (data.errors.length === 0 ||
+                data.errors.every(line => line.trim() === "")) {
+
+                const noErrors = document.createElement("div");
+                noErrors.className = "no-errors";
+                noErrors.textContent = "No errors reported.";
+
+                errorList.appendChild(noErrors);
+
+            } else {
+                data.errors.forEach(function(line) {
+                    if (line.trim() === "") {
+                        return;
+                    }
+
+                    const errorDiv = document.createElement("div");
+                    errorDiv.className = "error";
+                    errorDiv.textContent = line;
+
+                    errorList.appendChild(errorDiv);
+                });
+            }
+
+            previousErrors = currentErrors;
         }
 
     } catch (error) {
@@ -380,9 +411,10 @@ async function refreshAgentUI() {
 // Load current data immediately
 refreshAgentUI();
 
-// Refresh every 1.5 seconds
+// Check for updates every 1.5 seconds
 setInterval(refreshAgentUI, 1500);
 </script>
+
 
 </body>
 </html>

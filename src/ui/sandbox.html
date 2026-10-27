@@ -76,93 +76,147 @@
         <pre id="source"></pre>
     </div>
 
-    <script>
-        const tabs = document.getElementById("tabs");
-        const preview = document.getElementById("preview");
-        const source = document.getElementById("source");
 
-        let files = [];
+<script>
+    const tabs = document.getElementById("tabs");
+    const preview = document.getElementById("preview");
+    const source = document.getElementById("source");
 
-        async function loadFiles() {
-            try {
-                // get file list from PHP 
-                const response = await fetch("list_files.php");
+    let files = [];
+    let previousFileList = "";
+    let selectedFile = null;
 
-                if (!response.ok) {
-                    throw new Error("Could not load file list");
-                }
-
-                files = await response.json();
-
-                tabs.innerHTML = "";
-
-                files.forEach(function(file, index) {
-                    const button = document.createElement("button");
-
-                    button.className = "tab";
-                    button.textContent = file.name;
-
-                    button.addEventListener("click", function() {
-                        showFile(index);
-                    });
-
-                    tabs.appendChild(button);
-                });
-
-                if (files.length > 0) {
-                    showFile(0);
-                } else {
-                    source.style.display = "block";
-                    preview.style.display = "none";
-                    source.textContent = "No files found.";
-                }
-
-            } catch (error) {
-                preview.style.display = "none";
-                source.style.display = "block";
-                source.textContent = "Error loading files: " + error.message;
-            }
-        }
-
-        async function showFile(index) {
-            const file = files[index];
-
-            document.querySelectorAll(".tab").forEach(function(tab, i) {
-                tab.classList.toggle("active", i === index);
+    async function loadFiles() {
+        try {
+            // Get file list from PHP
+            const response = await fetch("list_files.php", {
+                cache: "no-store"
             });
 
-            const extension = file.name.split(".").pop().toLowerCase();
-
-            if (extension === "html" || extension === "htm") {
-                // load HTML file as a webpage
-                source.style.display = "none";
-                preview.style.display = "block";
-
-                preview.src = file.url;
-            } else {
-                // load non HTML files as source code
-                preview.style.display = "none";
-                source.style.display = "block";
-                source.textContent = "Loading...";
-
-                try {
-                    const response = await fetch(file.url);
-
-                    if (!response.ok) {
-                        throw new Error("Could not load file");
-                    }
-
-                    source.textContent = await response.text();
-
-                } catch (error) {
-                    source.textContent = "Error loading file: " + error.message;
-                }
+            if (!response.ok) {
+                throw new Error("Could not load file list");
             }
+
+            const newFiles = await response.json();
+            const newFileList = JSON.stringify(
+                newFiles.map(file => file.name + "|" + file.url)
+            );
+
+            // Do nothing if the file list has not changed
+            if (newFileList === previousFileList) {
+                return;
+            }
+
+            previousFileList = newFileList;
+            files = newFiles;
+
+            // Remember which file was selected
+            const previouslySelected = selectedFile;
+
+            // Rebuild tabs only when the file list changes
+            tabs.innerHTML = "";
+
+            files.forEach(function(file, index) {
+                const button = document.createElement("button");
+
+                button.className = "tab";
+                button.textContent = file.name;
+
+                button.addEventListener("click", function() {
+                    showFile(index);
+                });
+
+                tabs.appendChild(button);
+            });
+
+            if (files.length > 0) {
+                // Keep the selected file if it still exists
+                let selectedIndex = files.findIndex(function(file) {
+                    return file.name === previouslySelected;
+                });
+
+                if (selectedIndex === -1) {
+                    selectedIndex = 0;
+                }
+
+                // Only load a file if the selection needs to change
+                if (files[selectedIndex].name !== previouslySelected) {
+                    showFile(selectedIndex);
+                } else {
+                    // Restore the active tab without reloading the preview
+                    document.querySelectorAll(".tab").forEach(
+                        function(tab, index) {
+                            tab.classList.toggle(
+                                "active",
+                                index === selectedIndex
+                            );
+                        }
+                    );
+                }
+            } else {
+                selectedFile = null;
+                source.style.display = "block";
+                preview.style.display = "none";
+                source.textContent = "No files found.";
+            }
+
+        } catch (error) {
+            console.error("Error loading files:", error);
+        }
+    }
+
+    async function showFile(index) {
+        const file = files[index];
+
+        if (!file) {
+            return;
         }
 
-        loadFiles();
-        setInterval(loadFiles, 2000);
-    </script>
+        // Remember the selected file
+        selectedFile = file.name;
+
+        document.querySelectorAll(".tab").forEach(function(tab, i) {
+            tab.classList.toggle("active", i === index);
+        });
+
+        const extension = file.name.split(".").pop().toLowerCase();
+
+        if (extension === "html" || extension === "htm") {
+            // Load HTML file as a webpage
+            source.style.display = "none";
+            preview.style.display = "block";
+
+            preview.src = file.url;
+        } else {
+            // Load non-HTML files as source code
+            preview.style.display = "none";
+            source.style.display = "block";
+            source.textContent = "Loading...";
+
+            try {
+                const response = await fetch(file.url, {
+                    cache: "no-store"
+                });
+
+                if (!response.ok) {
+                    throw new Error("Could not load file");
+                }
+
+                source.textContent = await response.text();
+
+            } catch (error) {
+                source.textContent = "Error loading file: " + error.message;
+            }
+        }
+    }
+
+    // Load files immediately
+    loadFiles();
+
+    // Check for newly created or removed files
+    setInterval(loadFiles, 2000);
+</script>
+
 
 </body>
 </html>
