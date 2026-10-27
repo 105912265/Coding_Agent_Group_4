@@ -12,6 +12,20 @@
 $filename = __DIR__ . "/messages.txt";
 $statusfile = __DIR__ . "/status.txt";
 $errorfile = __DIR__ . "/errors.txt";
+
+
+function addMessage($filename, $type, $message) {
+    $handle = fopen($filename, "a");
+
+    if ($handle) {
+        $message = str_replace("|", "/", $message);
+        $message = str_replace(["\r", "\n"], " ", $message);
+
+        fwrite($handle, $type . "|" . $message . "\n");
+        fclose($handle);
+    }
+}
+
 // create messages.txt if not exists
 if (!file_exists($filename)) {
     $handle = fopen($filename, "w");
@@ -65,41 +79,71 @@ if ($handle) {
     fclose($handle);
 }
 
-// check if prompt submitted 
-if (isset($_POST["prompt"])) {
+
+
+
+
+// check if prompt submitted
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["prompt"])) {
+    $prompt = trim($_POST["prompt"]);
+
     $maxIterations = isset($_POST["max_iterations"])
         ? (int) $_POST["max_iterations"]
         : 3;
-    if ($maxIterations < 1 || $maxIterations > 5) {
-        $maxIterations = 3;
-    }
-    $prompt = trim($_POST["prompt"]);
-    if ($prompt != "") {
-        // append user prmppt
-        $handle = fopen($filename, "a");
 
-        if ($handle) {
-            fwrite($handle, "USER|" . $prompt . "\n");
-            fclose($handle);
-        }
-
-        // SEND PROMPT TO MANAGER AGENT
-
+    // validate the prompt
+    if ($prompt == "") {
+        // Ignore empty submissions without adding chat messages.
+    } elseif (strlen($prompt) > 5000) {
+        addMessage($filename, "AGENT", "Your prompt is too long. Please keep it under 5000 characters.");
+    } elseif ($maxIterations < 1 || $maxIterations > 5) {
+        addMessage($filename, "AGENT", "Invalid iteration setting. Please select a value between 1 and 5.");
+    } else {
+        // locate Python, the agent script and launcher
         $projectFolder = dirname(__DIR__, 2);
-        $scriptFile = $projectFolder . "/src/run_multi_agent.py";
-        $logFile = __DIR__ . "/agent_output.log";
+        $pythonExe = $projectFolder . "/.venv/Scripts/python.exe";
+        $launcherFile = $projectFolder . "/src/launch_agent.py";
+        $promptFile = __DIR__ . "/pending_prompt.txt";
 
-        $command = "cd " . escapeshellarg($projectFolder)
-                . " && nohup python3 " . escapeshellarg($scriptFile)
-                . " " . escapeshellarg($prompt)
-                . " --max-iterations " . $maxIterations
-                . " > " . escapeshellarg($logFile)
-                . " 2>&1 < /dev/null &";
+        // check that required files exist
+        if (!file_exists($pythonExe)) {
+            addMessage($filename, "AGENT", "Could not start the coding agent: Python virtual environment was not found.");
+        } elseif (!file_exists($launcherFile)) {
+            addMessage($filename, "AGENT", "Could not start the coding agent: launch_agent.py was not found.");
+        } else {
+            // save the prompt for the launcher
+            $saved = file_put_contents($promptFile, $prompt, LOCK_EX);
 
-        exec($command);
+            if ($saved === false) {
+                addMessage($filename, "AGENT", "Could not save the prompt for the coding agent. Check file permissions.");
+            } else {
+                // append the user prompt
+                addMessage($filename, "USER", $prompt);
+                addMessage($filename, "AGENT", "Task submitted. Starting the coding agent...");
 
+                // SEND PROMPT TO MANAGER AGENT
+                $command = 'start "" /B "' . $pythonExe . '" "' . $launcherFile . '" ' . $maxIterations;
+
+                exec($command, $output, $returnCode);
+
+                if ($returnCode !== 0) {
+                    addMessage($filename, "AGENT", "Could not launch the Python launcher. Check the Errors panel.");
+
+                    $handle = fopen($errorfile, "a");
+
+                    if ($handle) {
+                        fwrite($handle, "Python launcher command failed. Exit code: " . $returnCode . "\n");
+                        fclose($handle);
+                    }
+                }
+            }
+        }
     }
 }
+
+
+
+
 
 ?>
 

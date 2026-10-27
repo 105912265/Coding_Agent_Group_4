@@ -1,3 +1,4 @@
+
 """Run from project root: python src/run_multi_agent.py "Build a calculator""" 
 
 import os
@@ -58,6 +59,7 @@ def main():
         log_message("AGENT", "Starting the multi-agent workflow.")
 
         write_status(title, "Creating LLM client", 10)
+        log_message("AGENT", "Connecting to the language model.")
         llm = create_llm_client()
 
         write_status(title, "Building multi-agent graph", 15)
@@ -79,6 +81,7 @@ def main():
         result = None
         update_count = 0
         last_stage = ""
+        logged_history = []
 
         #graph.stream instead of graph.invoke for progress snapshots
 
@@ -91,6 +94,11 @@ def main():
             update_count += 1
 
             history = snapshot.get("history", [])
+
+            # Display new workflow steps in the UI without repeating old steps.
+            for action in history[len(logged_history):]:
+                log_message("AGENT", "Workflow step: " + str(action))
+                logged_history.append(action)
 
             if history:
                 stage = str(history[-1])
@@ -109,19 +117,44 @@ def main():
 
         write_status(title, "Processing results", 90)
 
-        status = result["status"]
-        history = result["history"]
-        implementation = result["implementation"]
-        test_report = result["test_report"]
-        final_review = result["final_review"]
+        status = result.get("status", "error")
+        history = result.get("history", [])
+        implementation = result.get("implementation", "")
+        test_report = result.get("test_report", "")
+        test_status = result.get("test_status", "not_run")
+        final_review = result.get("final_review", "")
+        issue = result.get("issue", "")
+        issue_source = result.get("issue_source", "")
 
         print("\nSTATUS:", status, flush=True)
-        print("\nWORKFLOW:", " -> ".join(history), flush=True)
+        print("\nWORKFLOW:", " -> ".join(map(str, history)), flush=True)
         print("\nIMPLEMENTATION:", implementation, flush=True)
+        print("\nTEST STATUS:", test_status, flush=True)
         print("\nTESTS:", test_report, flush=True)
+        print("\nISSUE:", issue, flush=True)
         print("\nSUPERVISOR:", final_review, flush=True)
 
         log_message("AGENT", f"Workflow finished with status: {status}")
+
+        # Display implementation, testing and review details in the UI chat.
+        if implementation:
+            log_message("AGENT", "Implementation summary: " + implementation)
+
+        if test_status != "not_run":
+            log_message("AGENT", "Test outcome: " + str(test_status))
+
+        if test_report:
+            log_message("AGENT", "Tester report: " + test_report)
+
+        if issue:
+            log_message(
+                "AGENT",
+                "Issue reported by " + str(issue_source or "agent")
+                + ": " + issue
+            )
+
+        if final_review:
+            log_message("AGENT", "Supervisor review: " + final_review)
 
         if status == "needs_clarification":
             log_message(
@@ -135,6 +168,21 @@ def main():
                 "AGENT",
                 "The task could not be completed. Check the output or errors."
             )
+
+            # Record workflow failures even when no Python exception occurred.
+            error_details = [
+                "WORKFLOW FAILED",
+                "Status: " + str(status),
+                "Workflow: " + " -> ".join(map(str, history)),
+                "Implementation: " + str(implementation),
+                "Test status: " + str(test_status),
+                "Tester report: " + str(test_report),
+                "Issue source: " + str(issue_source),
+                "Issue: " + str(issue),
+                "Supervisor review: " + str(final_review)
+            ]
+            write_error("\n".join(error_details))
+
             write_status(title, "Task failed", 100)
 
         else:
@@ -148,7 +196,7 @@ def main():
         error_details = traceback.format_exc()
 
         print(error_details, flush=True)
-        write_error(error_details)
+        write_error("PYTHON EXCEPTION\n" + error_details)
 
         write_status(title, "Task failed", 100)
 
