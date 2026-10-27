@@ -295,133 +295,158 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["prompt"])) {
 
 </div>
 
+
 <script>
+    let previousMessages = [];
+    let previousErrors = "";
+    let previousStatus = "";
 
-let previousMessages = [];
-let previousErrors = "";
-let previousStatus = "";
-
-async function refreshAgentUI() {
-    try {
-        const response = await fetch("get_status.php", {
-            cache: "no-store"
-        });
-
-        if (!response.ok) {
-            throw new Error("Could not load agent status");
-        }
-
-        const data = await response.json();
-
-        // Update project status only when it changes
-        const currentStatus = JSON.stringify(data.status);
-
-        if (currentStatus !== previousStatus) {
-            document.getElementById("projectTitle").textContent =
-                data.status.title;
-
-            document.getElementById("stageText").textContent =
-                data.status.stage;
-
-            document.getElementById("progressBar").style.width =
-                data.status.progress + "%";
-
-            document.getElementById("progressText").textContent =
-                data.status.progress + "%";
-
-            previousStatus = currentStatus;
-        }
-
-
-        // Update chat messages only when they change
-        const messages = document.getElementById("messages");
-
-        const currentMessages = data.messages;
-        const currentMessagesJSON = JSON.stringify(currentMessages);
-
-        if (currentMessagesJSON !== JSON.stringify(previousMessages)) {
-            const wasAtBottom =
-                messages.scrollHeight - messages.scrollTop -
-                messages.clientHeight < 40;
-
-            messages.replaceChildren();
-
-            currentMessages.forEach(function(item) {
-                const messageDiv = document.createElement("div");
-
-                messageDiv.className = item.type === "USER"
-                    ? "message user"
-                    : "message";
-
-                const heading = document.createElement("strong");
-                heading.textContent = item.type === "USER"
-                    ? "You:"
-                    : "Agent:";
-
-                messageDiv.appendChild(heading);
-                messageDiv.appendChild(document.createElement("br"));
-
-                messageDiv.appendChild(
-                    document.createTextNode(item.message)
-                );
-
-                messages.appendChild(messageDiv);
+    async function refreshAgentUI() {
+        try {
+            const response = await fetch("get_status.php", {
+                cache: "no-store"
             });
 
-            previousMessages = currentMessages.map(item => ({
-                type: item.type,
-                message: item.message
-            }));
-
-            if (wasAtBottom) {
-                messages.scrollTop = messages.scrollHeight;
+            if (!response.ok) {
+                throw new Error("Could not load agent status");
             }
-        }
 
+            const data = await response.json();
 
-        // Update errors only when their contents change
-        const currentErrors = JSON.stringify(data.errors);
+            // Update project status only when it changes
+            const currentStatus = JSON.stringify(data.status);
 
-        if (currentErrors !== previousErrors) {
-            const errorList = document.getElementById("errorList");
-            errorList.replaceChildren();
+            if (currentStatus !== previousStatus) {
+                document.getElementById("projectTitle").textContent =
+                    data.status.title;
 
-            if (data.errors.length === 0 ||
-                data.errors.every(line => line.trim() === "")) {
+                document.getElementById("stageText").textContent =
+                    data.status.stage;
 
-                const noErrors = document.createElement("div");
-                noErrors.className = "no-errors";
-                noErrors.textContent = "No errors reported.";
+                document.getElementById("progressBar").style.width =
+                    data.status.progress + "%";
 
-                errorList.appendChild(noErrors);
+                document.getElementById("progressText").textContent =
+                    data.status.progress + "%";
 
-            } else {
-                data.errors.forEach(function(line) {
-                    if (line.trim() === "") {
-                        return;
-                    }
+                previousStatus = currentStatus;
+            }
 
-                    const errorDiv = document.createElement("div");
-                    errorDiv.className = "error";
-                    errorDiv.textContent = line;
+            // Update chat only when messages change
+            const messages = document.getElementById("messages");
+            const currentMessages = data.messages;
 
-                    errorList.appendChild(errorDiv);
+            const newMessageArrived =
+                currentMessages.length > previousMessages.length;
+
+            const isReset =
+                currentMessages.length < previousMessages.length ||
+                currentMessages.some(function(item, index) {
+                    return previousMessages[index] &&
+                        (item.type !== previousMessages[index].type ||
+                         item.message !== previousMessages[index].message);
                 });
+
+            if (JSON.stringify(currentMessages) !==
+                JSON.stringify(previousMessages)) {
+
+                if (isReset) {
+                    // Rebuild chat after a reset or changed conversation
+                    messages.replaceChildren();
+
+                    currentMessages.forEach(function(item) {
+                        addChatMessage(messages, item);
+                    });
+
+                } else {
+                    // Append only newly added messages
+                    currentMessages.slice(previousMessages.length).forEach(
+                        function(item) {
+                            addChatMessage(messages, item);
+                        }
+                    );
+                }
+
+                // Save a copy of the current messages
+                previousMessages = currentMessages.map(function(item) {
+                    return {
+                        type: item.type,
+                        message: item.message
+                    };
+                });
+
+                // Scroll only for new messages or a reset
+                if (newMessageArrived || isReset) {
+                    messages.scrollTop = messages.scrollHeight;
+                }
             }
 
-            previousErrors = currentErrors;
+            // Update errors only when their contents change
+            const currentErrors = JSON.stringify(data.errors);
+
+            if (currentErrors !== previousErrors) {
+                const errorList = document.getElementById("errorList");
+                errorList.replaceChildren();
+
+                if (data.errors.length === 0 ||
+                    data.errors.every(line => line.trim() === "")) {
+
+                    const noErrors = document.createElement("div");
+                    noErrors.className = "no-errors";
+                    noErrors.textContent = "No errors reported.";
+
+                    errorList.appendChild(noErrors);
+
+                } else {
+                    data.errors.forEach(function(line) {
+                        if (line.trim() === "") {
+                            return;
+                        }
+
+                        const errorDiv = document.createElement("div");
+                        errorDiv.className = "error";
+                        errorDiv.textContent = line;
+
+                        errorList.appendChild(errorDiv);
+                    });
+                }
+
+                previousErrors = currentErrors;
+            }
+
+        } catch (error) {
+            console.error("UI refresh failed:", error);
         }
-
-    } catch (error) {
-        console.error("UI refresh failed:", error);
     }
-}
 
-// Load current data immediately
-refreshAgentUI();
+    // Create one chat message
+    function addChatMessage(messages, item) {
+        const messageDiv = document.createElement("div");
 
-// Check for updates every 1.5 seconds
-setInterval(refreshAgentUI, 1500);
+        messageDiv.className = item.type === "USER"
+            ? "message user"
+            : "message";
+
+        const heading = document.createElement("strong");
+        heading.textContent = item.type === "USER"
+            ? "You:"
+            : "Agent:";
+
+        messageDiv.appendChild(heading);
+        messageDiv.appendChild(document.createElement("br"));
+
+        messageDiv.appendChild(
+            document.createTextNode(item.message)
+        );
+
+        messages.appendChild(messageDiv);
+    }
+
+    // Load current data immediately
+    refreshAgentUI();
+
+    // Check for updates every 1.5 seconds
+    setInterval(refreshAgentUI, 1500);
 </script>
 
 
