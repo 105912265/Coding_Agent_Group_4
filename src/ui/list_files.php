@@ -21,7 +21,7 @@ foreach (scandir($folder) as $name) {
     if (is_file($path) && !is_link($path)) {
         $files[] = [
             "name" => $name,
-            "url" => "file.php?path=" . rawurlencode($name)
+            "url" => "serve_file.php?path=" . rawurlencode($name)
         ];
     }
 }
