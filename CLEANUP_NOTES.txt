@@ -1,0 +1,11 @@
+This archive contains the files needed to run src/run_multi_agent.py and the current PHP UI.
+It intentionally excludes: .git, .venv, .env, generated runtime outputs and older alternative implementations.
+
+IMPORTANT:
+- This is a cleaned copy of the CURRENT runtime, not a newly tested or validated final submission.
+- The active entry point does not currently execute the separate scope_guard_node.py.
+- Set up your local .env from .env.example, activate the virtual environment, and install requirements.
+- For the UI, ensure PHP and a Windows Python virtual environment are installed; index.php launches src/launch_agent.py.
+- src/tools/file_manager.py creates runtime/workspace if missing.
+- The archive contains no Git repository history or API keys.
+- Do not delete your original project or branches before verifying the cleaned copy.

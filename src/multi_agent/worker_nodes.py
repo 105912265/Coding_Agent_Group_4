@@ -3,19 +3,74 @@ import json
 import re
 from smolagents import ToolCallingAgent
 from tools.agent_toolsets import PLANNER_TOOLS, CODER_TOOLS, TESTER_TOOLS
+import ast
 
 
 def parse_result(value):
-    raw = str(value)
+
+    # Handle responses already returned as dictionaries
+    if isinstance(value, dict):
+        return value
+
+    raw = str(value).strip()
+
+    # Remove optional Markdown JSON formatting
     match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw, re.S)
     candidate = match.group(1) if match else raw
+
+    # First try strict JSON
     try:
         result = json.loads(candidate)
+
         if isinstance(result, dict):
             return result
+
     except (ValueError, TypeError):
         pass
-    return {"outcome": "escalate", "issue": "Agent returned non-JSON output: " + raw[:1200]}
+
+    # Also support Python dictionary representations
+    try:
+        result = ast.literal_eval(candidate)
+
+        if isinstance(result, dict):
+            return result
+
+    except (ValueError, SyntaxError, TypeError, RecursionError):
+        pass
+
+    # Escalate only when the response cannot be parsed
+    return {
+        "outcome": "escalate",
+        "issue": "Agent returned unparseable output: " + raw[:1200]
+    }
+
+def validate_coder_answer(answer, memory, agent):
+
+    result = parse_result(answer)
+
+    # Reject responses that could not be parsed
+    issue = str(result.get("issue", ""))
+
+    if issue.startswith((
+        "Agent returned unparseable output:",
+        "Agent returned non-JSON output:"
+    )):
+        return False
+
+    # Require a recognised outcome
+    if result.get("outcome") not in ("ok", "escalate"):
+        return False
+
+    # Successful results must include an implementation summary
+    # and a list of files
+    if result["outcome"] == "ok":
+        return (
+            isinstance(result.get("summary"), str)
+            and isinstance(result.get("files"), list)
+        )
+
+    # Escalations must explain the blocker
+    return bool(issue.strip())
 
 
 def make_agent(model, role, tools, instructions):
@@ -26,6 +81,7 @@ def make_agent(model, role, tools, instructions):
 def create_workers(model):
     planner = make_agent(model, "planner", PLANNER_TOOLS, """You are the technical planner. Read existing files when needed. Never write code or files. Break requirements into components, file responsibilities, APIs, design heuristics, acceptance criteria, test cases, and a Mermaid UML-style class/component diagram when appropriate. Avoid overengineering. Prefer Python standard library, but basic HTML/CSS/JS websites are supported. Do not assume other engines or compilers exist. Respond ONLY with a JSON object: {"outcome":"ok|escalate","plan":"detailed plan","requirements":["testable requirement"],"issue":"reason if blocked"}. Escalate if requirements are ambiguous or capabilities uncertain.""")
     coder = make_agent(model, "coder", CODER_TOOLS, """Implement the planner's plan inside the workspace using tools. You may create Python, HTML, CSS, JS and supporting text files. Do not claim a file was written unless the tool confirms it. Do not change tests. If blocked or if the plan conflicts with requirements, escalate; do not silently choose. Respond ONLY as JSON: {"outcome":"ok|escalate","summary":"what was implemented","files":["relative paths"],"issue":"blocker if any"}.""")
+    coder.final_answer_checks.append(validate_coder_answer)
     tester = make_agent(model, "tester", TESTER_TOOLS, """Independently verify the product against the original requirements, not merely the coder's claims. Inspect source, create Python tests with write_test_file and execute via Docker execute_file. HTML/CSS/JS may be checked statically but never claim browser validation without a browser. Do not edit implementation. If tests fail, describe exact evidence; distinguish bugs, missing requirements, unsupported tooling and disagreements. Respond ONLY as JSON: {"outcome":"pass|fail|escalate","report":"tests performed, actual results and limitations","issue":"specific failure or disagreement"}.""")
     supervisor = make_agent(model, "supervisor", [], """You are ONLY an intermediary for escalations and the final independent reviewer. Do not implement, plan, run tests or call workers. Review state evidence and choose the responsible next node. Prefer returning a failed test to coder; if requirements or design are defective send to planner; if testing evidence is incomplete send to tester. Request human clarification if essential information is missing; stop if tooling cannot support task. Do not approve without test evidence. If tester says pass but evidence is incomplete, send to tester. Reply ONLY JSON: {"decision":"planner|coder|tester|approve|clarify|stop","reason":"specific explanation"}. Decisions must be grounded in the provided context.""")
     return planner, coder, tester, supervisor
