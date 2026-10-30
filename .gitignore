@@ -2,4 +2,9 @@ runtime/
 __pycache__/
 .venv/
 .env
+/src/ui/agent_output.log
+/src/ui/errors.txt
+/src/ui/messages.txt
+/src/ui/status.txt
+
 

@@ -11,7 +11,7 @@ body {
 }
 
 .left {
-    width: 50%;
+    width: 45%;
     height: 100vh;
     display: flex;
     flex-direction: column;
@@ -20,7 +20,7 @@ body {
 }
 
 .right {
-    width: 50%;
+    width: 55%;
     height: 100vh;
     background-color: #f5f5f5;
     display: flex;
@@ -65,7 +65,7 @@ body {
 
 textarea {
     flex: 1;
-    height: 60px;
+    height: 100px;
     resize: none;
     padding: 10px;
     box-sizing: border-box;
@@ -77,6 +77,8 @@ button {
     color: white;
     border: none;
     cursor: pointer;
+    font-size: 16px;
+
 }
 
 button:hover {
@@ -151,7 +153,7 @@ button:hover {
 .error-list {
     padding: 8px 12px;
     overflow-y: auto;
-    height: 80px;
+    height: 100px;
     box-sizing: border-box;
 }
 
@@ -164,4 +166,50 @@ button:hover {
 
 .no-errors {
     color: #777;
+}
+
+.iteration-setting {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 5px;
+    font-size: 12px;
+}
+
+.iteration-setting select {
+    height: 100%;
+    width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+    text-align-last: center;
+}
+
+.project-status {
+    position: relative;
+}
+
+.reset-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 10%;
+    min-width: 65px;
+}
+
+.reset-button form {
+    margin: 0;
+}
+
+.reset-button button {
+    width: 100%;
+    padding: 6px;
+    background-color: #c0392b;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.reset-button button:hover {
+    background-color: #e74c3c;
 }
