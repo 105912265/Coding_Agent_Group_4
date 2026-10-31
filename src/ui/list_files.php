@@ -11,20 +11,43 @@ if (!is_dir($folder)) {
 
 $files = [];
 
-foreach (scandir($folder) as $name) {
-    if ($name === "." || $name === "..") {
-        continue;
-    }
+function getFiles($folder, $relativePath = "") {
+    global $files;
 
-    $path = $folder . "/" . $name;
+    foreach (scandir($folder) as $name) {
+        if ($name === "." || $name === "..") {
+            continue;
+        }
 
-    if (is_file($path) && !is_link($path)) {
-        $files[] = [
-            "name" => $name,
-            "url" => "serve_file.php?path=" . rawurlencode($name)
-        ];
+        $path = $folder . "/" . $name;
+        $relativeFile = $relativePath === ""
+            ? $name
+            : $relativePath . "/" . $name;
+
+        // Skip symbolic links
+        if (is_link($path)) {
+            continue;
+        }
+
+        if (is_dir($path)) {
+            getFiles($path, $relativeFile);
+        } elseif (is_file($path)) {
+
+            // Encode each folder/file name separately
+            $encodedPath = implode(
+                "/",
+                array_map("rawurlencode", explode("/", $relativeFile))
+            );
+
+            $files[] = [
+                "name" => $relativeFile,
+                "url" => "serve_file.php/" . $encodedPath
+            ];
+        }
     }
 }
+
+getFiles($folder);
 
 echo json_encode($files);
 ?>
