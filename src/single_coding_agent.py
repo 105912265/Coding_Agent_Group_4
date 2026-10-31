@@ -1,7 +1,7 @@
-"""One Smolagents coding agent with multi-file tools and Python/JavaScript Docker tests.
+"""One Smolagents coding agent with multi-file tools and Python unittest in Docker.
 
 Run from the project root:
-    python src/single_coding_agent.py "Build a Snake game with HTML, CSS and JS"
+    python src/single_coding_agent.py "Build a Python calculator with unit tests"
     python src/single_coding_agent.py --repair-test
 """
 
@@ -84,13 +84,11 @@ def safe_path(workspace, path):
     return full_path
 
 
-NODE_IMAGE = "node:24-alpine"
 PYTHON_IMAGE = "python:3.12-slim"
-JS_EXTENSIONS = {".js", ".mjs", ".cjs"}
 
 
-def docker_command(workspace, command_args, image=PYTHON_IMAGE):
-    """Run generated code inside a restricted temporary Docker container."""
+def docker_command(workspace, python_args):
+    """Run Python in a restricted temporary Docker container."""
     return [
         "docker", "run", "--rm",
         "--network", "none",
@@ -106,16 +104,16 @@ def docker_command(workspace, command_args, image=PYTHON_IMAGE):
         "-e", "HOME=/tmp",
         "-v", f"{workspace.resolve()}:/workspace:ro",
         "-w", "/workspace",
-        image,
-        *command_args,
+        PYTHON_IMAGE,
+        "python", "-B", *python_args,
     ]
 
 
-def run_docker(workspace, command_args, timeout=60, image=PYTHON_IMAGE):
-    """Return the exit code and output from a temporary Docker container."""
+def run_docker(workspace, python_args, timeout=60):
+    """Return the exit code and combined output from Python inside Docker."""
     try:
         result = subprocess.run(
-            docker_command(workspace, command_args, image=image),
+            docker_command(workspace, python_args),
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -127,13 +125,14 @@ def run_docker(workspace, command_args, timeout=60, image=PYTHON_IMAGE):
         return None, f"Could not start Docker: {error}"
 
 
+
 def run_docker_tests(workspace):
     """Find test_*.py files and run their unittest tests together in Docker."""
     test_files = list(workspace.rglob("test_*.py"))
     if not test_files:
         return "no_tests", 0, None, "No test_*.py files were found."
 
-    exit_code, output = run_docker(workspace, ["python", "-B", "-c", TEST_RUNNER])
+    exit_code, output = run_docker(workspace, ["-c", TEST_RUNNER])
     matches = re.findall(r"Ran (\d+) tests?", output)
     count = int(matches[-1]) if matches else 0
 
@@ -141,9 +140,9 @@ def run_docker_tests(workspace):
         status = "not_run" if exit_code is not None else (
             "timeout" if "timed out" in output else "not_run"
         )
-    elif count == 0 and "Ran 0 tests" in output:
+    elif exit_code == 0 and count == 0:
         status = "no_tests"
-    elif exit_code == 0:
+    elif exit_code == 0 and count > 0:
         status = "passed"
     else:
         status = "failed"
@@ -152,29 +151,16 @@ def run_docker_tests(workspace):
 
 
 
-def is_js_test_file(path):
-    """Recognise common Node.js test filenames."""
-    name = Path(path).name.lower()
-    suffix = Path(path).suffix.lower()
-    if suffix not in JS_EXTENSIONS:
-        return False
-    return (
-        name.startswith(("test_", "test-", "test."))
-        or ".test." in name
-        or ".spec." in name
-        or "_test." in name
-    )
-
-
 def is_test_file(path):
+    """Recognize Python unittest files, including in nested tests/ folders."""
     path = Path(path)
-    return (path.suffix == ".py" and path.name.startswith("test_")) or is_js_test_file(path)
+    return path.suffix == ".py" and path.name.startswith("test_")
 
 
 def classify_repairs(test_history):
-    """Track what changed between a failed test run and the next passing run.
+    """Count edits between a failed test run and the next successful run.
 
-    Changes after tests already passed are not counted as repairs.
+    Test-only edits count as test correction, not implementation self-repair.
     """
     implementation_repair = False
     test_repair = False
@@ -200,101 +186,6 @@ def classify_repairs(test_history):
     return implementation_repair, test_repair
 
 
-def run_docker_js_tests(workspace):
-    """Run native JavaScript tests with Node.js inside Docker."""
-    test_files = sorted(
-        p.relative_to(workspace).as_posix()
-        for p in workspace.rglob("*")
-        if p.is_file() and is_js_test_file(p)
-    )
-    if not test_files:
-        return "no_tests", 0, None, "No JavaScript test files found."
-
-    # Node's test runner executes node:test suites; TAP exposes a test count.
-    args = ["node", "--test", "--test-reporter=tap", "--test-concurrency=1", *test_files]
-    exit_code, output = run_docker(workspace, args, image=NODE_IMAGE)
-    match = re.search(r"^\s*# tests\s+(\d+)\s*$", output, re.MULTILINE)
-    count = int(match.group(1)) if match else 0
-
-    if exit_code is None:
-        status = "timeout" if "timed out" in output else "not_run"
-    elif exit_code in (125, 126, 127):
-        status = "not_run"
-    elif exit_code == 0 and count > 0:
-        status = "passed"
-    elif exit_code == 0:
-        status = "no_tests"
-    else:
-        status = "failed"
-
-    return status, count, exit_code, output
-
-
-def run_project_tests(workspace):
-    """Run whichever language suites exist, without treating Python placeholders as JS tests."""
-    files = [p for p in workspace.rglob("*") if p.is_file()]
-    python_tests = [p for p in files if p.suffix == ".py" and is_test_file(p)]
-    javascript_tests = [p for p in files if is_js_test_file(p)]
-    python_source = any(p.suffix == ".py" and not is_test_file(p) for p in files)
-    javascript_source = any(p.suffix.lower() in JS_EXTENSIONS and not is_test_file(p) for p in files)
-    frontend = any(p.suffix.lower() in {".html", ".htm"} for p in files)
-
-    suites = {}
-    messages = []
-    count = 0
-    codes = []
-
-    if python_tests:
-        status, number, code, output = run_docker_tests(workspace)
-        suites["python"] = {"status": status, "test_count": number, "exit_code": code}
-        count += number
-        codes.append(code)
-        messages.append("=== Python unittest ===\n" + output)
-
-    if javascript_tests:
-        status, number, code, output = run_docker_js_tests(workspace)
-        suites["javascript"] = {"status": status, "test_count": number, "exit_code": code}
-        count += number
-        codes.append(code)
-        messages.append("=== Node.js tests ===\n" + output)
-
-    # A Python test that only checks whether game.js exists cannot verify JS logic.
-    missing_js_tests = javascript_source and not javascript_tests
-    missing_python_tests = python_source and not python_tests
-    missing_frontend_tests = frontend and not javascript_tests and not python_tests
-
-    if missing_js_tests:
-        messages.append("WARNING: JavaScript code exists but no native JavaScript tests were found.")
-    if missing_python_tests:
-        messages.append("WARNING: Python implementation exists but no Python unit tests were found.")
-    if missing_frontend_tests:
-        messages.append("WARNING: Browser interface has no automated tests.")
-
-    statuses = [suite["status"] for suite in suites.values()]
-    if "failed" in statuses:
-        overall = "failed"
-    elif "timeout" in statuses:
-        overall = "timeout"
-    elif "not_run" in statuses:
-        overall = "not_run"
-    elif "no_tests" in statuses:
-        overall = "needs_review"
-    elif missing_js_tests or missing_python_tests or missing_frontend_tests:
-        overall = "needs_review"
-    elif statuses and all(s == "passed" for s in statuses):
-        overall = "passed"
-    else:
-        overall = "no_tests"
-
-    if overall == "passed":
-        exit_code = 0
-    elif overall == "failed":
-        exit_code = next((code for code in codes if code not in (0, None)), 1)
-    else:
-        exit_code = next((code for code in codes if code not in (0, None)), None)
-
-    output = "\n\n".join(messages) or "No Python or JavaScript unit tests were found."
-    return overall, count, exit_code, output, suites
 
 def main():
     repair_test = "--repair-test" in sys.argv[1:]
@@ -374,7 +265,7 @@ def main():
             path: Relative folder to list; use '.' for the whole project.
         """
         try:
-            folder = safe_path(workspace, path)
+            folder = safe_path(workspace, path or ".")
             if not folder.is_dir():
                 return "Error: folder does not exist."
             files = [f.relative_to(workspace).as_posix() for f in folder.rglob("*") if f.is_file()]
@@ -415,36 +306,23 @@ def main():
             if target.suffix != ".py" or not target.is_file():
                 return "Error: provide an existing Python file."
             relative = target.relative_to(workspace).as_posix()
-            code, output = run_docker(workspace, ["python", "-B", relative], timeout=15)
+            code, output = run_docker(workspace, [relative], timeout=15)
             return f"Exit code: {code}\n{output[-8000:]}"
         except (OSError, ValueError) as error:
             return f"Error: {error}"
 
     @tool
-    def check_javascript(path: str) -> str:
-        """Check the syntax of a JavaScript file in Node.js Docker (not a functionality test).
-
-        Args:
-            path: Relative .js, .mjs, or .cjs filename to check.
-        """
-        try:
-            target = safe_path(workspace, path)
-            if target.suffix.lower() not in JS_EXTENSIONS or not target.is_file():
-                return "Error: provide an existing JavaScript file."
-            relative = target.relative_to(workspace).as_posix()
-            code, output = run_docker(
-                workspace, ["node", "--check", relative], timeout=20, image=NODE_IMAGE
-            )
-            if code == 0:
-                return f"JavaScript syntax: passed ({path})."
-            return f"JavaScript syntax: failed ({path}), exit code {code}.\n{output[-6000:]}"
-        except (OSError, ValueError) as error:
-            return f"Error: {error}"
-
-    @tool
     def run_tests() -> str:
-        """Run Python unittest and native JavaScript node:test suites in Docker."""
-        status, count, exit_code, output, suites = run_project_tests(workspace)
+        """Run all Python test_*.py unit tests in Docker and report actual results."""
+        status, count, exit_code, output = run_docker_tests(workspace)
+        suites = {"python": {"status": status, "test_count": count, "exit_code": exit_code}}
+        # HTML/CSS/JS-only projects are outside this Python-only benchmark.
+        browser_files = [p for p in workspace.rglob("*") if p.is_file()
+                         and p.suffix.lower() in {".html", ".htm", ".js", ".mjs", ".cjs"}]
+        if status == "passed" and browser_files:
+            status = "needs_review"
+            output += ("\nPython unit tests passed, but browser/JavaScript behaviour "
+                       "was not verified. This evaluation is Python-only.")
         version = version_numbers.setdefault(revision, len(version_numbers) + 1)
         changes = sorted(changed_files)
 
@@ -465,31 +343,27 @@ def main():
         "You are ONE coding agent responsible for planning, coding, testing, and fixing problems. "
         "You are not part of a multi-agent team and you do not use LangGraph. "
         "Use the file tools to build the user's project in the workspace. "
-        "You can create multiple Python, HTML, CSS, JavaScript, and supporting files. "
-        "Use sensible filenames and separate files when appropriate. "
-        "For Python code, create meaningful unittest tests named test_*.py. "
-        "For JavaScript code, create REAL behaviour tests using Node's built-in node:test "
-        "and node:assert/strict, named tests/game.test.js or tests/game.test.mjs. "
-        "Separate game logic from DOM/canvas rendering so Node can import and test the logic. "
-        "Do not use file-existence or string-presence checks as substitutes for behaviour tests. "
-        "Use only standard libraries for Python and JavaScript tests (no npm install). "
-        "Use check_javascript for quick JS syntax checks and run_tests for actual test execution. "
-        "If a browser project uses JavaScript but has no JS tests, run_tests will mark it needs_review. "
-        "If tests fail, read the errors, inspect files, fix the issue, and test again. "
-        "If Docker is unavailable or a test returns not_run, report that infrastructure problem instead of changing code to hide it. "
-        "Never remove or weaken a valid test just to make it pass. "
-        "Passing Node tests verifies JS logic, not the complete browser UI; do not claim UI verification. "
-        "You may use execute_file for standalone Python scripts; it does not replace run_tests. "
-        "Do not claim a file exists unless the write_file tool confirms it. "
-        "Do not claim tests passed unless run_tests reports passed for the latest files. "
-        "Finish with a brief summary naming the files and actual test outcome."
+        "For this evaluation, implement tasks in Python and use Python's unittest framework only. "
+        "You may create multiple Python files and supporting files with sensible filenames. "
+        "Create meaningful behaviour tests named test_*.py, including tests/test_*.py. "
+        "Use only Python standard-library dependencies; do not install packages. "
+        "Use run_tests to execute these unit tests in Docker. "
+        "If tests fail, inspect the failure and fix the implementation or an incorrect test, then rerun. "
+        "Never remove or weaken a valid test merely to make it pass. "
+        "Do not claim that Python tests verify browser or JavaScript behaviour. "
+        "If Docker is unavailable, report the infrastructure failure instead of hiding it. "
+        "You may use execute_file for Python scripts, but it does not replace run_tests. "
+        "Do not claim files exist unless write_file confirms it. "
+        "Do not claim tests passed unless run_tests passes for the latest files. "
+        "Finish with a brief summary of generated files and the verified test outcome."
     )
 
     if repair_test:
         (workspace / "solution.py").write_text(BROKEN_SOLUTION, encoding="utf-8")
         (workspace / "test_repair.py").write_text(REPAIR_TESTS, encoding="utf-8")
         revision = 1
-        status, count, exit_code, output, suites = run_project_tests(workspace)
+        status, count, exit_code, output = run_docker_tests(workspace)
+        suites = {"python": {"status": status, "test_count": count, "exit_code": exit_code}}
         version_numbers[revision] = 1
         test_history.append({
             "version": 1, "revision": revision, "changed_files": ["solution.py"],
@@ -509,7 +383,7 @@ def main():
         model = create_llm_client()  # Same Gemini configuration as the hybrid.
         agent = ToolCallingAgent(
             model=model,
-            tools=[write_file, read_file, list_files, delete_file, execute_file, check_javascript, run_tests],
+            tools=[write_file, read_file, list_files, delete_file, execute_file, run_tests],
             instructions=instructions,
             max_steps=30,
         )
